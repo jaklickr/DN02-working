@@ -343,14 +343,39 @@ streznik.post("/prijava", (zahteva, odgovor) => {
   );
 });
 
+
+
 // Prikaz strani za prijavo
 streznik.get("/prijava", (zahteva, odgovor) => {
   vrniStranke((napaka1, stranke) => {
+    var prev;
     vrniRacune((napaka2, racuni) => {
       for (let i = 0; i < stranke.length; i++) stranke[i].stRacunov = 0;
 
       for (let i = 0; i < racuni.length; i++)
         filmiIzRacuna(racuni[i].InvoiceId, (napaka, vrstice) => {});
+
+      stranke.sort(function(a, b) {
+        var drA = a.Country.toUpperCase();
+        var drB = b.Country.toUpperCase();
+        return (drA < drB) ? -1 : (drA > drB) ? 1 : 0;
+      }).forEach((stranka) => {
+        if (prev !== undefined) {
+          if (prev == stranka.Country) {
+            stop = stranka.Country.length
+            stranka.Country = "";
+            for (var i = 1; i <= stop; i++) {
+              stranka.Country += "&nbsp";
+            }
+          } else {
+            prev = stranka.Country;
+          }
+        } else {
+          prev = stranka.Country;
+        }
+      });
+
+      
 
       odgovor.render("prijava", {
         sporocilo: "",

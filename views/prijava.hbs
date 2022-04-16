@@ -182,6 +182,7 @@
               {{stranka.FirstName}}
               {{stranka.LastName}},
               {{stranka.Email}}
+              {{#if stranka.Company}}({{stranka.Company}}){{/if}}
             </option>
           {{/each}}
         </select>
@@ -220,7 +221,9 @@
             />
           </div>
         </form>
-        <div class="help-block"><small id="najboljeOcenjeniFilm"></small></div>
+          <div class="help-block">
+            <small id="najboljeOcenjeniFilm"></small>
+          </div>
       </div>
     </div>
   </div>
