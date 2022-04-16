@@ -197,6 +197,20 @@ const najdiStrankoPoPriimku = (priimek, povratniKlic) => {
   );
 };
 
+const najdiTipa = (priimek, ime, povratniKlic) => {
+  pb.get(
+    "SELECT * \
+     FROM   Customer \
+     WHERE  Customer.LastName IS NOT NULL AND \
+            UPPER(Customer.LastName) == $priimek AND \
+            UPPER(Customer.FirstName) == $ime \
+     LIMIT 1",
+    { $priimek: priimek,
+      $ime: ime },
+    (napaka, stranka) => povratniKlic(napaka, stranka)
+  );
+};
+
 // Prikaz začetne strani
 streznik.get("/", (zahteva, odgovor) => {
   vrniSeznamFilmov((napaka, vrstice) => {
@@ -327,20 +341,69 @@ streznik.get("/najdi_sorodnika/:priimek", (zahteva, odgovor) => {
   });
 });
 
+var uspesnost;
+
 // Registracija novega uporabnika
 streznik.post("/prijava", (zahteva, odgovor) => {
-  pb.run(
-    "INSERT INTO Customer \
-       (FirstName, LastName, Company, Address, City, State, \
-        Country, PostalCode, Phone, Fax, Email, SupportRepId) \
-     VALUES \
-       ($fn, $ln, $com, $addr, $city, $state, $country, $pc, $phone, \
-        $fax, $email, $sri)",
-    {},
-    (napaka) => {
-      odgovor.end();
+  var prijavnica = new formidable.IncomingForm();
+  
+  prijavnica.parse(zahteva, function(err, fields, files) {
+    if (fields.CompanyType !== undefined && fields.CompanyType !== "ni podjetja") {
+      tip = fields.CompanyType;
+    } else {
+      var tip = "";
     }
-  );
+    var priimek = fields.LastName.toUpperCase();
+    var ime = fields.FirstName.toUpperCase();
+    najdiTipa(priimek, ime, (napaka, stranka) => {
+      if (stranka !== undefined) {
+        uspesnost = "Prišlo je do napake pri dodajanju nove stranke. Prosim, preverite vnesene podatke in poskusite znova.";
+        odgovor.redirect("/prijava");
+      } else if (
+        fields.FirstName !== "" &&
+        fields.LastName !== "" &&
+        fields.CompanyString !== "" &&
+        fields.Address !== "" &&
+        fields.City !== "" &&
+        fields.State !== "" &&
+        fields.Country !== "" &&
+        fields.PostalCode !== "" &&
+        fields.Phone !== "" &&
+        fields.Fax !== "" &&
+        fields.Email !== ""
+      ) {
+      
+        pb.run(
+          "INSERT INTO Customer \
+             (FirstName, LastName, Company, Address, City, State, \
+              Country, PostalCode, Phone, Fax, Email, SupportRepId) \
+           VALUES \
+             ($fn, $ln, $com, $addr, $city, $state, $country, $pc, $phone, \
+              $fax, $email, $sri)",
+          {
+            $fn: fields.FirstName, 
+            $ln: fields.LastName, 
+            $com: fields.CompanyString + " " + tip, 
+            $addr: fields.Address,
+            $city: fields.City, 
+            $state: fields.State, 
+            $country: fields.Country, 
+            $pc: fields.PostalCode,
+            $phone: fields.Phone, 
+            $fax: fields.Fax, 
+            $email: fields.Email,
+            $sri: 8
+          },
+        );
+        odgovor.redirect("/prijava");
+        uspesnost = "Nova stranka " + fields.FirstName + " " + fields.LastName + 
+        " je bila uspešno dodana.";
+      } else {
+        uspesnost = "Prišlo je do napake pri dodajanju nove stranke. Prosim, preverite vnesene podatke in poskusite znova.";
+        odgovor.redirect("/prijava");
+      } 
+    });
+  })
 });
 
 // Prikaz strani za prijavo
@@ -353,7 +416,7 @@ streznik.get("/prijava", (zahteva, odgovor) => {
         filmiIzRacuna(racuni[i].InvoiceId, (napaka, vrstice) => {});
 
       odgovor.render("prijava", {
-        sporocilo: "",
+        sporocilo: uspesnost,
         prijavniGumb: "Prijava stranke",
         podnaslov: "Prijavna stran",
         seznamStrank: stranke,
