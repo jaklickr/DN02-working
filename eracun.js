@@ -159,8 +159,21 @@ const strankaIzRacuna = (racunId, povratniKlic) => {
 };
 
 // Vrni podrobnosti o stranki iz seje
-const strankaIzSeje = (zahteva, povratniKlic) => {
-  povratniKlic(false);
+const strankaIzSeje = (strankaId, povratniKlic) => {
+  if(strankaId.session.trenutnaStranka !== undefined) {
+    pb.all(
+      "SELECT Customer.* \
+       FROM   Customer \
+       WHERE  Customer.CustomerId = $id",
+      { $id: strankaId.session.trenutnaStranka },
+      function (napaka, stranka) {
+        if (napaka) povratniKlic(false);
+        else povratniKlic(stranka[0]);
+      }
+    );
+  } else {
+    console.log("Za nakup filmov morate biti prijavljeni!")
+  } 
 };
 
 // Vrni stranke iz podatkovne baze
@@ -280,8 +293,66 @@ streznik.get("/kosarica", (zahteva, odgovor) => {
 
 // Izpis račun v HTML predstavitvi na podlagi podatkov iz baze
 streznik.post("/izpisiRacunBaza", (zahteva, odgovor) => {
-  odgovor.end();
+  var zahtevaPoRacunu = new formidable.IncomingForm();
+
+  zahtevaPoRacunu.parse(zahteva, function(err, fields, files) {
+    filmiIzRacuna(fields.seznamRacunov, (napaka, filmi) => {
+     strankaIzRacuna(fields.seznamRacunov, (stranka) => {
+      //console.log(filmi);
+      //console.log(stranka);
+      let povzetek = {
+        vsotaSPopustiInDavki: 0,
+        vsoteZneskovDdv: { 0: 0, 9.5: 0, 22: 0 },
+        vsoteOsnovZaDdv: { 0: 0, 9.5: 0, 22: 0 },
+        vsotaVrednosti: 0,
+        vsotaPopustov: 0,
+      };
+
+      filmi.forEach((film, i) => {
+        film.zapSt = i + 1;
+        film.cena = film.trajanje * 0.015;
+        film.vrednost = film.kolicina * film.cena;
+        film.davcnaStopnja = 22;
+
+        film.popustStopnja = 0;
+        film.popust = film.kolicina * film.cena * (film.popustStopnja / 100);
+
+        film.osnovaZaDdv = film.vrednost - film.popust;
+        film.ddv = film.osnovaZaDdv * (film.davcnaStopnja / 100);
+        film.osnovaZaDdvInDdv = film.osnovaZaDdv + film.ddv;
+
+        povzetek.vsotaSPopustiInDavki += film.osnovaZaDdv + film.ddv;
+        povzetek.vsoteZneskovDdv["" + film.davcnaStopnja] += film.ddv;
+        povzetek.vsoteOsnovZaDdv["" + film.davcnaStopnja] += film.osnovaZaDdv;
+        povzetek.vsotaVrednosti += film.vrednost;
+        povzetek.vsotaPopustov += film.popust;
+      });
+
+      odgovor.setHeader("Content-Type", "text/xml");
+      odgovor.render("eslog", {
+        vizualiziraj: true,
+        postavkeRacuna: filmi,
+        povzetekRacuna: povzetek,
+        stranka: stranka,
+        layout: null,
+        });
+      });
+    });
+  });
 });
+
+function popustNaLetnico(filmDatum) {
+  var filmLeto = filmDatum.split("-")[0];
+  var filmMesec = filmDatum.split("-")[1];
+  var danesLeto = new Date().getFullYear();
+  var danesMesec = new Date().getMonth();
+  
+  if ((danesLeto - filmLeto) % 10 != 0) {
+    return Math.floor((danesLeto - filmLeto) / 10);
+  }  else {
+    return Math.floor((danesLeto - filmLeto) / 10) - (filmMesec < danesMesec);
+  }
+}
 
 // Izpis računa v HTML predstavitvi ali izvorni XML obliki
 streznik.get("/izpisiRacun/:oblika", (zahteva, odgovor) => {
@@ -309,7 +380,7 @@ streznik.get("/izpisiRacun/:oblika", (zahteva, odgovor) => {
           film.vrednost = film.kolicina * film.cena;
           film.davcnaStopnja = 22;
 
-          film.popustStopnja = 0;
+          film.popustStopnja = popustNaLetnico(film.datumIzdaje) * 4;
           film.popust = film.kolicina * film.cena * (film.popustStopnja / 100);
 
           film.osnovaZaDdv = film.vrednost - film.popust;
