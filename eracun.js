@@ -253,7 +253,52 @@ streznik.get("/kosarica", (zahteva, odgovor) => {
 
 // Izpis račun v HTML predstavitvi na podlagi podatkov iz baze
 streznik.post("/izpisiRacunBaza", (zahteva, odgovor) => {
-  odgovor.end();
+  var zahtevaPoRacunu = new formidable.IncomingForm();
+
+  zahtevaPoRacunu.parse(zahteva, function(err, fields, files) {
+    filmiIzRacuna(fields.seznamRacunov, (napaka, filmi) => {
+     strankaIzRacuna(fields.seznamRacunov, (stranka) => {
+      //console.log(filmi);
+      //console.log(stranka);
+      let povzetek = {
+        vsotaSPopustiInDavki: 0,
+        vsoteZneskovDdv: { 0: 0, 9.5: 0, 22: 0 },
+        vsoteOsnovZaDdv: { 0: 0, 9.5: 0, 22: 0 },
+        vsotaVrednosti: 0,
+        vsotaPopustov: 0,
+      };
+
+      filmi.forEach((film, i) => {
+        film.zapSt = i + 1;
+        film.cena = film.trajanje * 0.015;
+        film.vrednost = film.kolicina * film.cena;
+        film.davcnaStopnja = 22;
+
+        film.popustStopnja = 0;
+        film.popust = film.kolicina * film.cena * (film.popustStopnja / 100);
+
+        film.osnovaZaDdv = film.vrednost - film.popust;
+        film.ddv = film.osnovaZaDdv * (film.davcnaStopnja / 100);
+        film.osnovaZaDdvInDdv = film.osnovaZaDdv + film.ddv;
+
+        povzetek.vsotaSPopustiInDavki += film.osnovaZaDdv + film.ddv;
+        povzetek.vsoteZneskovDdv["" + film.davcnaStopnja] += film.ddv;
+        povzetek.vsoteOsnovZaDdv["" + film.davcnaStopnja] += film.osnovaZaDdv;
+        povzetek.vsotaVrednosti += film.vrednost;
+        povzetek.vsotaPopustov += film.popust;
+      });
+
+      odgovor.setHeader("Content-Type", "text/xml");
+      odgovor.render("eslog", {
+        vizualiziraj: true,
+        postavkeRacuna: filmi,
+        povzetekRacuna: povzetek,
+        stranka: stranka,
+        layout: null,
+        });
+      });
+    });
+  });
 });
 
 // Izpis računa v HTML predstavitvi ali izvorni XML obliki
