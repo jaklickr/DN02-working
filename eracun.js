@@ -211,6 +211,16 @@ const najdiTipa = (priimek, ime, povratniKlic) => {
   );
 };
 
+var mapRep = {
+  en: "gb",
+  zh: "cn",
+  ja: "jp",
+  eo: "dj",
+  xx: "ua",
+  he: "il",
+  fa: "ir"
+}
+
 // Prikaz začetne strani
 streznik.get("/", (zahteva, odgovor) => {
   vrniSeznamFilmov((napaka, vrstice) => {
@@ -219,6 +229,9 @@ streznik.get("/", (zahteva, odgovor) => {
     } else {
       let zanri = new Set();
       for (let i = 0; i < vrstice.length; i++) {
+        vrstice[i].jeziki = vrstice[i].jeziki.replace(/en|zh|ja|eo|xx|he|fa/gi, function(matched) {
+          return mapRep[matched];
+        }).split(",");
         vrstice[i].cena = (
           vrstice[i].cena *
           (1 + vrstice[i].stopnja / 100)
