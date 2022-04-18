@@ -13,9 +13,11 @@ $(document).ready(() => {
                 if (odgovor.length == 1) {
                     let url = "https://www.imdb.com/title/" + film.imdb
                     rating.innerHTML = "Edini film na računu je " + film.opisArtikla.link("https://www.imdb.com/title/" + film.imdb) + " z oceno " + film.ocena.toString().replace(".", ",") + ".";
+                    rating.getElementsByTagName("a")[0].target="_blank";
                 } else {
                     if (film.ocena == najvecjaOcena) {
                     rating.innerHTML = "Najbolje ocenjeni film na računu je " + film.opisArtikla.link("https://www.imdb.com/title/" + film.imdb) + " z oceno " + film.ocena.toString().replace(".", ",") + ".";
+                    rating.getElementsByTagName("a")[0].target="_blank";    
                     }
                 }
             });
